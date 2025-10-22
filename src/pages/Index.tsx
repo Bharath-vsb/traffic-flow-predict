@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { VideoUpload } from "@/components/VideoUpload";
 import { AnalysisResults } from "@/components/AnalysisResults";
+import { DetectionOverlay } from "@/components/DetectionOverlay";
 import { Button } from "@/components/ui/button";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2, Zap, Brain } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { yoloDetector } from "@/lib/yolo-detector";
 import heroImage from "@/assets/hero-traffic.jpg";
 
 interface Signal {
@@ -17,6 +18,7 @@ interface AnalysisResult {
   signals: Signal[];
   congestionLevel: "low" | "medium" | "high";
   vehicleCount: number;
+  vehiclesByType: Record<string, number>;
   analysis: string;
 }
 
@@ -37,30 +39,42 @@ const Index = () => {
     }
 
     setIsAnalyzing(true);
-    toast.info("Analyzing traffic patterns...");
+    
+    const loadingToast = toast.loading("Initializing YOLO detector...");
 
     try {
-      const { data, error } = await supabase.functions.invoke('analyze-traffic', {
-        body: { 
-          videoData: `Traffic video: ${uploadedFile.name} (${(uploadedFile.size / 1024 / 1024).toFixed(2)}MB)` 
-        }
-      });
+      // Initialize YOLO detector
+      await yoloDetector.initialize();
+      
+      toast.loading("Extracting frames and detecting vehicles...", { id: loadingToast });
+      
+      // Analyze video with YOLO
+      const yoloResults = await yoloDetector.analyzeVideo(uploadedFile, 3);
+      
+      toast.loading("Calculating optimal signal timings...", { id: loadingToast });
+      
+      // Calculate signal timings based on YOLO detections
+      const signals = yoloDetector.calculateSignalTimings(yoloResults);
+      
+      const result: AnalysisResult = {
+        signals,
+        congestionLevel: yoloResults.congestionLevel,
+        vehicleCount: yoloResults.vehicleCount,
+        vehiclesByType: yoloResults.vehiclesByType,
+        analysis: `Detected ${yoloResults.vehicleCount} vehicles with ${yoloResults.congestionLevel} congestion level`
+      };
 
-      if (error) {
-        throw error;
-      }
-
-      setResults(data);
-      toast.success("Analysis complete!");
+      setResults(result);
+      toast.success("YOLO analysis complete!", { id: loadingToast });
+      
     } catch (error: any) {
       console.error('Analysis error:', error);
-      if (error.message?.includes('429')) {
-        toast.error("Rate limit exceeded. Please try again later.");
-      } else if (error.message?.includes('402')) {
-        toast.error("AI credits depleted. Please add credits to continue.");
-      } else {
-        toast.error("Analysis failed. Please try again.");
-      }
+      toast.error(
+        error.message?.includes('WebGPU') 
+          ? "WebGPU not available. Please use a compatible browser (Chrome/Edge)." 
+          : "YOLO analysis failed. Please try again.",
+        { id: loadingToast }
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -79,14 +93,14 @@ const Index = () => {
         <div className="absolute inset-0 z-20 flex items-center justify-center">
           <div className="text-center space-y-4 px-4">
             <div className="inline-flex items-center space-x-2 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-full px-6 py-2 mb-4">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-primary">AI-Powered</span>
+              <Brain className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-primary">YOLO + AI Powered</span>
             </div>
             <h1 className="text-5xl md:text-6xl font-bold text-foreground">
               Smart Traffic Management
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Advanced AI analysis for optimal traffic signal control and congestion reduction
+              Real-time vehicle detection with YOLOv9 and AI-optimized traffic signal control
             </p>
           </div>
         </div>
@@ -108,12 +122,12 @@ const Index = () => {
                 {isAnalyzing ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Analyzing Traffic...
+                    Running YOLO Detection...
                   </>
                 ) : (
                   <>
-                    <Zap className="mr-2 h-5 w-5" />
-                    Analyze Traffic
+                    <Brain className="mr-2 h-5 w-5" />
+                    Analyze with YOLO
                   </>
                 )}
               </Button>
@@ -121,11 +135,17 @@ const Index = () => {
           )}
 
           {results && (
-            <AnalysisResults
-              signals={results.signals}
-              congestionLevel={results.congestionLevel}
-              vehicleCount={results.vehicleCount}
-            />
+            <>
+              <DetectionOverlay 
+                vehiclesByType={results.vehiclesByType} 
+                isAnalyzing={isAnalyzing}
+              />
+              <AnalysisResults
+                signals={results.signals}
+                congestionLevel={results.congestionLevel}
+                vehicleCount={results.vehicleCount}
+              />
+            </>
           )}
 
           {results && (
@@ -143,10 +163,13 @@ const Index = () => {
                 {isAnalyzing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Re-analyzing...
+                    Re-analyzing with YOLO...
                   </>
                 ) : (
-                  "Re-analyze"
+                  <>
+                    <Brain className="mr-2 h-4 w-4" />
+                    Re-analyze
+                  </>
                 )}
               </Button>
             </div>
