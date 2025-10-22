@@ -47,16 +47,24 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+        traffic: {
+          green: "hsl(var(--traffic-green))",
+          "green-glow": "hsl(var(--traffic-green-glow))",
+          yellow: "hsl(var(--traffic-yellow))",
+          "yellow-glow": "hsl(var(--traffic-yellow-glow))",
+          red: "hsl(var(--traffic-red))",
+          "red-glow": "hsl(var(--traffic-red-glow))",
         },
+      },
+      backgroundImage: {
+        'gradient-hero': 'var(--gradient-hero)',
+        'gradient-card': 'var(--gradient-card)',
+      },
+      boxShadow: {
+        'green': 'var(--shadow-green)',
+        'yellow': 'var(--shadow-yellow)',
+        'red': 'var(--shadow-red)',
+        'card': 'var(--shadow-card)',
       },
       borderRadius: {
         lg: "var(--radius)",
